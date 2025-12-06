@@ -1965,7 +1965,7 @@ window.printInvoice = async function (transactionIdOrName) {
       transaction = matches[0];
     } else {
       const options = matches
-        .map((t, idx) => idx + 1 + ". " + t.nama + " - " + formatDate(t.tanggal) + " - " + formatRupiah(t.total))
+        .map((t, idx) => idx + 1 + ". " + t.nama + " - " + safeFormatDate(t.tanggal) + " - " + safeFormatRupiah(t.total))
         .join("\n");
 
       const choice = prompt(
@@ -2007,17 +2007,54 @@ window.printInvoice = async function (transactionIdOrName) {
     return;
   }
 
+  // ✅ Helper functions yang dibutuhkan
   function formatAngkaBulat(angka) {
     return Math.round(angka).toLocaleString("id-ID");
   }
 
+  function safeFormatDate(dateStr) {
+    if (!dateStr) return "-";
+    try {
+      return formatDate(dateStr);
+    } catch (e) {
+      return dateStr;
+    }
+  }
+
+  function safeFormatRupiah(angka) {
+    if (!angka && angka !== 0) return "Rp 0";
+    try {
+      return formatRupiah(angka);
+    } catch (e) {
+      return "Rp " + formatAngkaBulat(angka);
+    }
+  }
+
+  function safeTerbilang(angka) {
+    if (!angka && angka !== 0) return "nol";
+    try {
+      return terbilang(angka);
+    } catch (e) {
+      return "(" + formatAngkaBulat(angka) + ")";
+    }
+  }
+
+  function safeGetDisplayLabel(item, barangData) {
+    try {
+      return getDisplayLabel(item, barangData);
+    } catch (e) {
+      return item.typeBarang === "kelompok" ? "Kelompok" : "Turunan";
+    }
+  }
+
+  // ✅ Definisikan NOMOR_TOKO berdasarkan STORE_ID
   const NOMOR_TOKO = STORE_ID === "BM1" ? "1" : "2";
   
   const alamatToko =
     STORE_ID === "BM1" ? "Dsn V (P7), Desa Sei Alim Ulu, Kec. Air Batu" : "Jalinsum Desa Air Teluk Hessa, Kec. Teluk Dalam";
 
   const noFaktur = transaction.noStruk || transaction.id;
-  const tglFaktur = formatDate(transaction.tanggal);
+  const tglFaktur = safeFormatDate(transaction.tanggal);
   const namaPelanggan = transaction.nama && transaction.nama.trim() !== "" ? transaction.nama : "NO NAME";
   const alamatPelanggan = transaction.alamat && transaction.alamat.trim() !== "" && transaction.alamat !== "-" ? transaction.alamat : "-";
 
@@ -2028,7 +2065,7 @@ window.printInvoice = async function (transactionIdOrName) {
 
   if (transaction.items && transaction.items.length > 0) {
     transaction.items.forEach((item, i) => {
-      const typeLabel = getDisplayLabel(item, barangData);
+      const typeLabel = safeGetDisplayLabel(item, barangData);
       const hargaSatuan = item.harga;
       const qtyItem = item.qty;
       const jumlahSebelumDiskon = hargaSatuan * qtyItem;
@@ -2278,7 +2315,7 @@ window.printInvoice = async function (transactionIdOrName) {
   
   <div class="footer">
     <div class="footer-row">
-      <div><strong>Terbilang :</strong> ${terbilang(Math.round(grandTotal))} Rupiah</div>
+      <div><strong>Terbilang :</strong> ${safeTerbilang(Math.round(grandTotal))} Rupiah</div>
     </div>
     <div class="footer-row">
       <div><strong>Status :</strong> <span style="color: ${statusColor}; font-weight: bold;">${statusPembayaran}</span></div>
