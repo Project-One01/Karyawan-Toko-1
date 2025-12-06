@@ -2011,6 +2011,8 @@ window.printInvoice = async function (transactionIdOrName) {
     return Math.round(angka).toLocaleString("id-ID");
   }
 
+  const NOMOR_TOKO = STORE_ID === "BM1" ? "1" : "2";
+  
   const alamatToko =
     STORE_ID === "BM1" ? "Dsn V (P7), Desa Sei Alim Ulu, Kec. Air Batu" : "Jalinsum Desa Air Teluk Hessa, Kec. Teluk Dalam";
 
