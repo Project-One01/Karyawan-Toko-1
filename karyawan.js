@@ -2086,268 +2086,245 @@ window.printInvoice = async function (transactionIdOrName) {
 
   const statusColor = statusPembayaran === "Lunas" ? "#10b981" : "#f59e0b";
 
-  const printWindow = window.open("", "width=900,height=700");
+  // ✅ PERBAIKAN: Buat HTML sebagai string terlebih dahulu
+  const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+  <title>Faktur Penjualan - ${namaPelanggan}</title>
+  <style>
+    @media print {
+      @page { margin: 0.5cm; size: A4; }
+      body { margin: 0; }
+    }
+    body {
+      font-family: "Courier New", monospace;
+      font-size: 11px;
+      line-height: 1.3;
+      color: #000;
+      padding: 10px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 15px;
+      border-bottom: 1px solid #000;
+      padding-bottom: 10px;
+      align-items: center;
+    }
+    .company-logo {
+      width: 80px;
+      height: 80px;
+      object-fit: contain;
+      margin-right: 15px;
+    }
+    .company-info-wrapper {
+      display: flex;
+      align-items: center;
+      flex: 1;
+    }
+    .company-info {
+      flex: 1;
+    }
+    .company-name {
+      font-weight: bold;
+      font-size: 14px;
+      margin-bottom: 3px;
+    }
+    .invoice-info {
+      text-align: right;
+      flex: 1;
+    }
+    .invoice-title {
+      font-weight: bold;
+      font-size: 16px;
+      margin-bottom: 5px;
+    }
+    .customer-info {
+      margin: 10px 0;
+      display: flex;
+      justify-content: space-between;
+    }
+    .items-header {
+      display: flex;
+      font-weight: bold;
+      border-top: 1px solid #000;
+      border-bottom: 1px solid #000;
+      padding: 5px 0;
+      margin: 10px 0;
+    }
+    .items-content {
+      min-height: 200px;
+    }
+    .summary {
+      margin-top: 20px;
+      border-top: 1px solid #000;
+      padding-top: 10px;
+    }
+    .summary-row {
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: 3px;
+    }
+    .summary-label {
+      width: 150px;
+      text-align: right;
+      padding-right: 20px;
+    }
+    .summary-value {
+      width: 150px;
+      text-align: right;
+      font-weight: bold;
+    }
+    .footer {
+      margin-top: 30px;
+      border-top: 1px solid #000;
+      padding-top: 10px;
+    }
+    .footer-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 3px;
+    }
+    .signatures {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 50px;
+    }
+    .signature-box {
+      text-align: center;
+      width: 150px;
+    }
+    .signature-line {
+      border-bottom: 1px solid #000;
+      height: 60px;
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="company-info-wrapper">
+      <img src="icon (1).jpeg" alt="Logo" class="company-logo" onerror="this.style.display='none'">
+      <div class="company-info">
+        <div class="company-name">BERKAH MANDIRI ${NOMOR_TOKO}</div>
+        <div>Menjual: Segala Jenis Material Bangunan</div>
+        <div>${alamatToko}</div>
+        <div>Telp : 085275174814 - 085372063988</div>
+      </div>
+    </div>
+    <div class="invoice-info">
+      <div class="invoice-title">FAKTUR PENJUALAN</div>
+    </div>
+  </div>
+  
+  <div class="customer-info">
+    <div>
+      <div>Tanggal : ${tglFaktur}</div>
+      <div>Faktur : ${noFaktur}</div>
+    </div>
+    <div style="text-align: right;">
+      <div>Pelanggan : ${namaPelanggan}</div>
+      <div>Alamat : ${alamatPelanggan}</div>
+    </div>
+  </div>
+  
+  <div class="items-header">
+    <div style="width: 30px; text-align: center;">NO</div>
+    <div style="width: 80px;">Kode</div>
+    <div style="flex: 1;">Nama</div>
+    <div style="width: 80px; text-align: right;">Qty</div>
+    <div style="width: 70px; text-align: right;">Harga</div>
+    <div style="width: 70px; text-align: right;">Dis.(%)</div>
+    <div style="width: 90px; text-align: right;">Disk.(Rp)</div>
+    <div style="width: 110px; text-align: right;">Netto</div>
+  </div>
+  
+  <div class="items-content">
+    ${itemsContent}
+  </div>
+  
+  <div style="border-top: 1px solid #000; padding-top: 5px; margin-top: 10px;">
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div><strong>Jumlah :</strong> ${transaction.items.length} Item | <strong>Total Qty :</strong> ${formatAngkaBulat(totalQty)}</div>
+    </div>
+  </div>
+  
+  <div class="summary">
+    ${totalDiskon > 0 ? `
+    <div class="summary-row">
+      <div class="summary-label">Subtotal :</div>
+      <div class="summary-value">${formatAngkaBulat(subtotalSebelumDiskon)}</div>
+    </div>
+    <div class="summary-row">
+      <div class="summary-label">Total Diskon :</div>
+      <div class="summary-value" style="color: #dc2626;">- ${formatAngkaBulat(totalDiskon)}</div>
+    </div>` : ''}
+    <div class="summary-row" style="border-top: 1px solid #000; margin-top: 5px; padding-top: 5px;">
+      <div class="summary-label">Grand Total :</div>
+      <div class="summary-value" style="font-size: 13px;">${formatAngkaBulat(grandTotal)}</div>
+    </div>
+    <div class="summary-row">
+      <div class="summary-label">Dibayar :</div>
+      <div class="summary-value">${formatAngkaBulat(jumlahDibayar)}</div>
+    </div>
+    ${sisaTagihan > 0 ? `
+    <div class="summary-row">
+      <div class="summary-label">Sisa Tagihan :</div>
+      <div class="summary-value" style="color: #f59e0b;">${formatAngkaBulat(sisaTagihan)}</div>
+    </div>` : ''}
+  </div>
+  
+  <div class="footer">
+    <div class="footer-row">
+      <div><strong>Terbilang :</strong> ${terbilang(Math.round(grandTotal))} Rupiah</div>
+    </div>
+    <div class="footer-row">
+      <div><strong>Status :</strong> <span style="color: ${statusColor}; font-weight: bold;">${statusPembayaran}</span></div>
+    </div>
+    <div class="footer-row">
+      <div><strong>Memo :</strong> ${statusPembayaran === "Belum Lunas" ? "Harap lunasi sisa tagihan sebesar " + formatAngkaBulat(sisaTagihan) : "Terima kasih atas pembelian Anda"}</div>
+    </div>
+    <div class="signatures">
+      <div class="signature-box">
+        <div class="signature-line"></div>
+        <div>Dibuat oleh</div>
+      </div>
+      <div class="signature-box">
+        <div class="signature-line"></div>
+        <div>Customer</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  // ✅ PERBAIKAN: Gunakan cara yang lebih reliable
+  const printWindow = window.open("", "_blank", "width=900,height=700");
 
   if (!printWindow) {
     alert("❌ Popup diblokir! Silakan izinkan popup untuk mencetak.");
     return;
   }
 
-  printWindow.document.write(
-    "<!DOCTYPE html>" +
-      "<html>" +
-      "<head>" +
-      "<title>Faktur Penjualan - " +
-      namaPelanggan +
-      "</title>" +
-      "<style>" +
-      "@media print {" +
-      "@page { margin: 0.5cm; size: A4; }" +
-      "body { margin: 0; }" +
-      "}" +
-      "body {" +
-      'font-family: "Courier New", monospace;' +
-      "font-size: 11px;" +
-      "line-height: 1.3;" +
-      "color: #000;" +
-      "padding: 10px;" +
-      "}" +
-      ".header {" +
-      "display: flex;" +
-      "justify-content: space-between;" +
-      "margin-bottom: 15px;" +
-      "border-bottom: 1px solid #000;" +
-      "padding-bottom: 10px;" +
-      "align-items: center;" +
-      "}" +
-      ".company-logo {" +
-      "width: 80px;" +
-      "height: 80px;" +
-      "object-fit: contain;" +
-      "margin-right: 15px;" +
-      "}" +
-      ".company-info-wrapper {" +
-      "display: flex;" +
-      "align-items: center;" +
-      "flex: 1;" +
-      "}" +
-      ".company-info {" +
-      "flex: 1;" +
-      "}" +
-      ".company-name {" +
-      "font-weight: bold;" +
-      "font-size: 14px;" +
-      "margin-bottom: 3px;" +
-      "}" +
-      ".invoice-info {" +
-      "text-align: right;" +
-      "flex: 1;" +
-      "}" +
-      ".invoice-title {" +
-      "font-weight: bold;" +
-      "font-size: 16px;" +
-      "margin-bottom: 5px;" +
-      "}" +
-      ".customer-info {" +
-      "margin: 10px 0;" +
-      "display: flex;" +
-      "justify-content: space-between;" +
-      "}" +
-      ".items-header {" +
-      "display: flex;" +
-      "font-weight: bold;" +
-      "border-top: 1px solid #000;" +
-      "border-bottom: 1px solid #000;" +
-      "padding: 5px 0;" +
-      "margin: 10px 0;" +
-      "}" +
-      ".items-content {" +
-      "min-height: 200px;" +
-      "}" +
-      ".summary {" +
-      "margin-top: 20px;" +
-      "border-top: 1px solid #000;" +
-      "padding-top: 10px;" +
-      "}" +
-      ".summary-row {" +
-      "display: flex;" +
-      "justify-content: flex-end;" +
-      "margin-bottom: 3px;" +
-      "}" +
-      ".summary-label {" +
-      "width: 150px;" +
-      "text-align: right;" +
-      "padding-right: 20px;" +
-      "}" +
-      ".summary-value {" +
-      "width: 150px;" +
-      "text-align: right;" +
-      "font-weight: bold;" +
-      "}" +
-      ".footer {" +
-      "margin-top: 30px;" +
-      "border-top: 1px solid #000;" +
-      "padding-top: 10px;" +
-      "}" +
-      ".footer-row {" +
-      "display: flex;" +
-      "justify-content: space-between;" +
-      "margin-bottom: 3px;" +
-      "}" +
-      ".signatures {" +
-      "display: flex;" +
-      "justify-content: space-around;" +
-      "margin-top: 50px;" +
-      "}" +
-      ".signature-box {" +
-      "text-align: center;" +
-      "width: 150px;" +
-      "}" +
-      ".signature-line {" +
-      "border-bottom: 1px solid #000;" +
-      "height: 60px;" +
-      "margin-bottom: 5px;" +
-      "}" +
-      "</style>" +
-      "</head>" +
-      "<body>" +
-      '<div class="header">' +
-      '<div class="company-info-wrapper">' +
-      '<img src="icon (1).jpeg" alt="Logo" class="company-logo" onerror="this.style.display=\'none\'">' +
-      '<div class="company-info">' +
-      '<div class="company-name">BERKAH MANDIRI ' +
-      NOMOR_TOKO +
-      "</div>" +
-      "<div>Menjual: Segala Jenis Material Bangunan</div>" +
-      "<div>" +
-      alamatToko +
-      "</div>" +
-      "<div>Telp : 085275174814 - 085372063988</div>" +
-      "</div>" +
-      "</div>" +
-      '<div class="invoice-info">' +
-      '<div class="invoice-title">FAKTUR PENJUALAN</div>' +
-      "</div>" +
-      "</div>" +
-      '<div class="customer-info">' +
-      "<div>" +
-      "<div>Tanggal : " +
-      tglFaktur +
-      "</div>" +
-      "<div>Faktur : " +
-      noFaktur +
-      "</div>" +
-      "</div>" +
-      '<div style="text-align: right;">' +
-      "<div>Pelanggan : " +
-      namaPelanggan +
-      "</div>" +
-      "<div>Alamat : " +
-      alamatPelanggan +
-      "</div>" +
-      "</div>" +
-      "</div>" +
-      '<div class="items-header">' +
-      '<div style="width: 30px; text-align: center;">NO</div>' +
-      '<div style="width: 80px;">Kode</div>' +
-      '<div style="flex: 1;">Nama</div>' +
-      '<div style="width: 80px; text-align: right;">Qty</div>' +
-      '<div style="width: 70px; text-align: right;">Harga</div>' +
-      '<div style="width: 70px; text-align: right;">Dis.(%)</div>' +
-      '<div style="width: 90px; text-align: right;">Disk.(Rp)</div>' +
-      '<div style="width: 110px; text-align: right;">Netto</div>' +
-      "</div>" +
-      '<div class="items-content">' +
-      itemsContent +
-      "</div>" +
-      '<div style="border-top: 1px solid #000; padding-top: 5px; margin-top: 10px;">' +
-      '<div style="display: flex; justify-content: space-between; align-items: center;">' +
-      "<div><strong>Jumlah :</strong> " +
-      transaction.items.length +
-      " Item | <strong>Total Qty :</strong> " +
-      formatAngkaBulat(totalQty) +
-      "</div>" +
-      "</div>" +
-      "</div>" +
-      '<div class="summary">' +
-      (totalDiskon > 0
-        ? '<div class="summary-row">' +
-          '<div class="summary-label">Subtotal :</div>' +
-          '<div class="summary-value">' +
-          formatAngkaBulat(subtotalSebelumDiskon) +
-          "</div>" +
-          "</div>"
-        : "") +
-      (totalDiskon > 0
-        ? '<div class="summary-row">' +
-          '<div class="summary-label">Total Diskon :</div>' +
-          '<div class="summary-value" style="color: #dc2626;">- ' +
-          formatAngkaBulat(totalDiskon) +
-          "</div>" +
-          "</div>"
-        : "") +
-      '<div class="summary-row" style="border-top: 1px solid #000; margin-top: 5px; padding-top: 5px;">' +
-      '<div class="summary-label">Grand Total :</div>' +
-      '<div class="summary-value" style="font-size: 13px;">' +
-      formatAngkaBulat(grandTotal) +
-      "</div>" +
-      "</div>" +
-      '<div class="summary-row">' +
-      '<div class="summary-label">Dibayar :</div>' +
-      '<div class="summary-value">' +
-      formatAngkaBulat(jumlahDibayar) +
-      "</div>" +
-      "</div>" +
-      (sisaTagihan > 0
-        ? '<div class="summary-row">' +
-          '<div class="summary-label">Sisa Tagihan :</div>' +
-          '<div class="summary-value" style="color: #f59e0b;">' +
-          formatAngkaBulat(sisaTagihan) +
-          "</div>" +
-          "</div>"
-        : "") +
-      "</div>" +
-      '<div class="footer">' +
-      '<div class="footer-row">' +
-      "<div><strong>Terbilang :</strong> " +
-      terbilang(Math.round(grandTotal)) +
-      " Rupiah</div>" +
-      "</div>" +
-      '<div class="footer-row">' +
-      "<div><strong>Status :</strong> " +
-      '<span style="color: ' +
-      statusColor +
-      '; font-weight: bold;">' +
-      statusPembayaran +
-      "</span></div>" +
-      "</div>" +
-      '<div class="footer-row">' +
-      "<div><strong>Memo :</strong> " +
-      (statusPembayaran === "Belum Lunas"
-        ? "Harap lunasi sisa tagihan sebesar " + formatAngkaBulat(sisaTagihan)
-        : "Terima kasih atas pembelian Anda") +
-      "</div>" +
-      "</div>" +
-      '<div class="signatures">' +
-      '<div class="signature-box">' +
-      '<div class="signature-line"></div>' +
-      "<div>Dibuat oleh</div>" +
-      "</div>" +
-      '<div class="signature-box">' +
-      '<div class="signature-line"></div>' +
-      "<div>Customer</div>" +
-      "</div>" +
-      "</div>" +
-      "</div>" +
-      "</body>" +
-      "</html>"
-  );
-
+  // ✅ Tulis konten dan tunggu hingga siap
+  printWindow.document.open();
+  printWindow.document.write(htmlContent);
   printWindow.document.close();
 
+  // ✅ Tunggu hingga dokumen benar-benar ter-load
+  printWindow.onload = function() {
+    setTimeout(() => {
+      printWindow.focus();
+      printWindow.print();
+    }, 250);
+  };
+
+  // ✅ Fallback jika onload tidak trigger
   setTimeout(() => {
-    printWindow.focus();
-    printWindow.print();
+    if (printWindow.document.readyState === 'complete') {
+      printWindow.focus();
+      printWindow.print();
+    }
   }, 500);
 };
 
