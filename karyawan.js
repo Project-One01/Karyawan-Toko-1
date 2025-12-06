@@ -2086,7 +2086,7 @@ window.printInvoice = async function (transactionIdOrName) {
 
   const statusColor = statusPembayaran === "Lunas" ? "#10b981" : "#f59e0b";
 
-  const printWindow = window.open("", "_blank", "width=900,height=700");
+  const printWindow = window.open("", "width=900,height=700");
 
   if (!printWindow) {
     alert("❌ Popup diblokir! Silakan izinkan popup untuk mencetak.");
