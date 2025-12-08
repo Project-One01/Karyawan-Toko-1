@@ -1305,6 +1305,7 @@ async function initCheckout() {
     const finalTotal = manualGrandTotal !== null ? manualGrandTotal : calculatedTotal;
     const payment = parseFloat(document.getElementById("paymentAmount")?.value) || 0;
 
+    // ✅ PERBAIKAN 1 & 2: Validasi pembayaran dengan notifikasi yang jelas
     if (useDepositForTransaction && selectedDepositCustomer) {
       const customerBalance = selectedDepositCustomer.saldo;
 
@@ -1333,27 +1334,11 @@ async function initCheckout() {
         }
       }
     } else if (payment < finalTotal) {
+      // ✅ PERBAIKAN 1: Izinkan pembayaran 0 dengan konfirmasi
       const kekurangan = finalTotal - payment;
 
-      if (payment === 0) {
-        alert(
-          "⚠️ Anda belum memasukkan jumlah pembayaran!\n\n" +
-            "Total Belanja: " +
-            formatRupiah(finalTotal) +
-            "\n" +
-            "Dibayar: " +
-            formatRupiah(payment) +
-            "\n\n" +
-            "Silakan masukkan jumlah pembayaran (boleh kurang dari total, akan dicatat sebagai 'Belum Lunas')."
-        );
-
-        const paymentInput = document.getElementById("paymentAmount");
-        if (paymentInput) paymentInput.focus();
-        return;
-      }
-
       const confirmed = confirm(
-        "⚠️ Pembayaran kurang!\n\n" +
+        "⚠️ Pembayaran kurang dari total!\n\n" +
           "Total Belanja: " +
           formatRupiah(finalTotal) +
           "\n" +
@@ -1365,6 +1350,24 @@ async function initCheckout() {
           "\n\n" +
           "Transaksi akan dicatat sebagai 'Belum Lunas'.\n" +
           "Lanjutkan?"
+      );
+
+      if (!confirmed) return;
+    } else if (payment >= finalTotal) {
+      // ✅ PERBAIKAN 2: Tambahkan notifikasi untuk pembayaran lunas
+      const kembalian = payment - finalTotal;
+      const confirmed = confirm(
+        "✅ Konfirmasi Pembayaran Lunas\n\n" +
+          "Total Belanja: " +
+          formatRupiah(finalTotal) +
+          "\n" +
+          "Dibayar: " +
+          formatRupiah(payment) +
+          "\n" +
+          "Kembalian: " +
+          formatRupiah(kembalian) +
+          "\n\n" +
+          "Lanjutkan transaksi?"
       );
 
       if (!confirmed) return;
@@ -1653,7 +1656,8 @@ function renderTodayTransactionsTable() {
 
   const today = getTodayWIB();
 
-  const filtered = transaksiData
+  // ✅ PERBAIKAN 3: Pisahkan transaksi hari ini dan transaksi belum lunas sebelumnya
+  const todayTransactions = transaksiData
     .filter((t) => {
       if (!t.tanggal) return false;
 
@@ -1669,154 +1673,201 @@ function renderTodayTransactionsTable() {
     })
     .sort((a, b) => new Date(b.waktu) - new Date(a.waktu));
 
-  if (filtered.length === 0) {
+  const previousUnpaidTransactions = transaksiData
+    .filter((t) => {
+      if (!t.tanggal) return false;
+
+      try {
+        const transDateLocal = getLocalDateString(t.tanggal);
+        const isToday = transDateLocal === today;
+        const isFromThisStore = t.stokSource === STORE_ID;
+        const isUnpaid = t.status === "Belum Lunas";
+
+        // Hanya ambil transaksi belum lunas dari hari sebelumnya (bukan hari ini)
+        return !isToday && isFromThisStore && isUnpaid;
+      } catch (error) {
+        return false;
+      }
+    })
+    .sort((a, b) => new Date(b.waktu) - new Date(a.waktu));
+
+  if (todayTransactions.length === 0 && previousUnpaidTransactions.length === 0) {
     tbody.innerHTML = '<tr><td colspan="7" class="table-empty">Belum ada transaksi hari ini di ' + STORE_ID + ".</td></tr>";
     return;
   }
 
-  tbody.innerHTML = filtered
-    .map((t) => {
-      if (t.tipeProses === "refund" || t.tipeProses === "exchange") {
-        const refundItemsText = t.items
-          .filter((item) => item.isRefunded)
-          .map((item) => {
-            const typeLabel = getDisplayLabel(item, barangData);
-            return '<span class="refund-item-text">- ' + item.nama + " (" + item.qty + " " + typeLabel + ") [" + (item.stokSource || STORE_ID) + "]</span>";
-          })
-          .join("<br>");
+  let htmlContent = "";
 
-        const exchangeItemsText = t.items
-          .filter((item) => !item.isRefunded)
-          .map((item) => {
-            const typeLabel = getDisplayLabel(item, barangData);
-            return '<span class="exchange-item-text">+ ' + item.nama + " (" + item.qty + " " + typeLabel + ") [" + (item.stokSource || STORE_ID) + "]</span>";
-          })
-          .join("<br>");
+  // ✅ Bagian 1: Transaksi Hari Ini
+  if (todayTransactions.length > 0) {
+    htmlContent += '<tr class="section-header-row"><td colspan="7" style="background: #3b82f6; color: white; font-weight: bold; text-align: center; padding: 10px;">📅 TRANSAKSI HARI INI - ' + formatDate(today) + "</td></tr>";
 
-        const totalKeluarMasuk = t.total;
+    htmlContent += todayTransactions
+      .map((t) => generateTransactionRow(t))
+      .join("");
+  }
 
-        let totalText = "";
-        let colorClass = "";
+  // ✅ Bagian 2: Transaksi Belum Lunas Sebelumnya
+  if (previousUnpaidTransactions.length > 0) {
+    htmlContent += '<tr class="section-divider-row"><td colspan="7" style="background: #f59e0b; color: white; font-weight: bold; text-align: center; padding: 10px;">⏳ TRANSAKSI BELUM LUNAS (Hari Sebelumnya)</td></tr>';
 
-        if (t.tipeProses === "refund") {
-          totalText = "Uang Kembali: " + formatRupiah(totalKeluarMasuk);
-          colorClass = "total-danger";
-        } else {
-          if (t.jenis === "Pemasukan") {
-            totalText = "Uang Tambah: " + formatRupiah(totalKeluarMasuk);
-            colorClass = "total-success";
-          } else if (t.jenis === "Pengeluaran") {
-            totalText = "Uang Kembali: " + formatRupiah(totalKeluarMasuk);
-            colorClass = "total-danger";
-          } else {
-            totalText = "Tukar Setara: " + formatRupiah(0);
-            colorClass = "total-neutral";
-          }
-        }
+    htmlContent += previousUnpaidTransactions
+      .map((t) => generateTransactionRow(t, true))
+      .join("");
+  }
 
-        const fullBarangList = refundItemsText + (refundItemsText && exchangeItemsText ? "<br>" : "") + exchangeItemsText;
-
-        return (
-          '<tr class="refund-exchange-row">' +
-          "<td>" +
-          formatDateTime(t.waktu).slice(-8) +
-          "</td>" +
-          "<td>" +
-          t.nama +
-          "</td>" +
-          '<td class="barang-list-cell">' +
-          "<strong>Barang Diproses (" +
-          t.tipeProses.toUpperCase() +
-          "):</strong><br>" +
-          (fullBarangList || "Tidak ada barang diproses") +
-          "</td>" +
-          '<td><span class="' +
-          colorClass +
-          '">' +
-          totalText +
-          "</span></td>" +
-          '<td><span class="status-refund-exchange">' +
-          t.tipeProses.toUpperCase() +
-          "</span></td>" +
-          "<td>" +
-          t.catatan +
-          " (Trans. Awal ID: " +
-          t.tipeAwal +
-          ")</td>" +
-          "<td>-</td>" +
-          "</tr>"
-        );
-      }
-
-      if (t.jenis === "Pemasukan") {
-        const barangList = t.items
-          ? t.items
-              .map((item) => {
-                const typeLabel = getDisplayLabel(item, barangData);
-                return item.nama + " (" + item.qty + " " + typeLabel + ") [" + (item.stokSource || STORE_ID) + "]";
-              })
-              .join("<br>")
-          : t.barang;
-
-        const statusClass =
-          t.status === "Lunas" ? "status-lunas" : t.status === "Belum Lunas" ? "status-belum-lunas" : t.status === "Diubah" ? "status-diubah" : "status-default";
-
-        const statusClickable =
-          t.status === "Belum Lunas"
-            ? 'onclick="lunaskanTransaksi(' + t.id + ')" style="cursor: pointer;" title="Klik untuk melunaskan"'
-            : "";
-
-        const infoBayar =
-          t.sisa > 0
-            ? '<div style="font-size: 10px; color: #f59e0b; margin-top: 2px;">' +
-              "Bayar: " +
-              formatRupiah(t.bayar) +
-              " | Sisa: " +
-              formatRupiah(t.sisa) +
-              "</div>"
-            : "";
-
-        return (
-          "<tr>" +
-          "<td>" +
-          formatDateTime(t.waktu).slice(-8) +
-          "</td>" +
-          "<td>" +
-          t.nama +
-          "</td>" +
-          '<td class="barang-list-cell">' +
-          barangList +
-          "</td>" +
-          "<td>" +
-          formatRupiah(t.total) +
-          infoBayar +
-          "</td>" +
-          '<td><span class="' +
-          statusClass +
-          '" ' +
-          statusClickable +
-          ">" +
-          t.status +
-          (t.status === "Belum Lunas" ? " 🔄" : "") +
-          "</span></td>" +
-          "<td>" +
-          t.catatan +
-          "</td>" +
-          "<td>" +
-          '<button class="btn-print" onclick="printInvoice(' +
-          t.id +
-          ')">' +
-          '<i class="fas fa-print"></i>' +
-          "</button>" +
-          "</td>" +
-          "</tr>"
-        );
-      }
-
-      return "";
-    })
-    .join("");
+  tbody.innerHTML = htmlContent;
 }
+
+// ✅ Helper function untuk generate row transaksi
+function generateTransactionRow(t, isPrevious = false) {
+  if (t.tipeProses === "refund" || t.tipeProses === "exchange") {
+    const refundItemsText = t.items
+      .filter((item) => item.isRefunded)
+      .map((item) => {
+        const typeLabel = getDisplayLabel(item, barangData);
+        return '<span class="refund-item-text">- ' + item.nama + " (" + item.qty + " " + typeLabel + ") [" + (item.stokSource || STORE_ID) + "]</span>";
+      })
+      .join("<br>");
+
+    const exchangeItemsText = t.items
+      .filter((item) => !item.isRefunded)
+      .map((item) => {
+        const typeLabel = getDisplayLabel(item, barangData);
+        return '<span class="exchange-item-text">+ ' + item.nama + " (" + item.qty + " " + typeLabel + ") [" + (item.stokSource || STORE_ID) + "]</span>";
+      })
+      .join("<br>");
+
+    const totalKeluarMasuk = t.total;
+
+    let totalText = "";
+    let colorClass = "";
+
+    if (t.tipeProses === "refund") {
+      totalText = "Uang Kembali: " + formatRupiah(totalKeluarMasuk);
+      colorClass = "total-danger";
+    } else {
+      if (t.jenis === "Pemasukan") {
+        totalText = "Uang Tambah: " + formatRupiah(totalKeluarMasuk);
+        colorClass = "total-success";
+      } else if (t.jenis === "Pengeluaran") {
+        totalText = "Uang Kembali: " + formatRupiah(totalKeluarMasuk);
+        colorClass = "total-danger";
+      } else {
+        totalText = "Tukar Setara: " + formatRupiah(0);
+        colorClass = "total-neutral";
+      }
+    }
+
+    const fullBarangList = refundItemsText + (refundItemsText && exchangeItemsText ? "<br>" : "") + exchangeItemsText;
+
+    return (
+      '<tr class="refund-exchange-row' + (isPrevious ? ' previous-unpaid-row' : '') + '">' +
+      "<td>" +
+      formatDate(t.tanggal) + " " +
+      formatDateTime(t.waktu).slice(-8) +
+      "</td>" +
+      "<td>" +
+      t.nama +
+      "</td>" +
+      '<td class="barang-list-cell">' +
+      "<strong>Barang Diproses (" +
+      t.tipeProses.toUpperCase() +
+      "):</strong><br>" +
+      (fullBarangList || "Tidak ada barang diproses") +
+      "</td>" +
+      '<td><span class="' +
+      colorClass +
+      '">' +
+      totalText +
+      "</span></td>" +
+      '<td><span class="status-refund-exchange">' +
+      t.tipeProses.toUpperCase() +
+      "</span></td>" +
+      "<td>" +
+      t.catatan +
+      " (Trans. Awal ID: " +
+      t.tipeAwal +
+      ")</td>" +
+      "<td>-</td>" +
+      "</tr>"
+    );
+  }
+
+  if (t.jenis === "Pemasukan") {
+    const barangList = t.items
+      ? t.items
+          .map((item) => {
+            const typeLabel = getDisplayLabel(item, barangData);
+            return item.nama + " (" + item.qty + " " + typeLabel + ") [" + (item.stokSource || STORE_ID) + "]";
+          })
+          .join("<br>")
+      : t.barang;
+
+    const statusClass =
+      t.status === "Lunas" ? "status-lunas" : t.status === "Belum Lunas" ? "status-belum-lunas" : t.status === "Diubah" ? "status-diubah" : "status-default";
+
+    const statusClickable =
+      t.status === "Belum Lunas"
+        ? 'onclick="lunaskanTransaksi(' + t.id + ')" style="cursor: pointer;" title="Klik untuk melunaskan"'
+        : "";
+
+    const infoBayar =
+      t.sisa > 0
+        ? '<div style="font-size: 10px; color: #f59e0b; margin-top: 2px;">' +
+          "Bayar: " +
+          formatRupiah(t.bayar) +
+          " | Sisa: " +
+          formatRupiah(t.sisa) +
+          "</div>"
+        : "";
+
+    // ✅ Tambahkan badge "HARI SEBELUMNYA" untuk transaksi belum lunas
+    const dateBadge = isPrevious 
+      ? '<div style="background: #f59e0b; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; display: inline-block; margin-left: 5px;">HARI SEBELUMNYA</div>'
+      : '';
+
+    return (
+      '<tr class="' + (isPrevious ? 'previous-unpaid-row' : '') + '">' +
+      "<td>" +
+      formatDate(t.tanggal) + " " +
+      formatDateTime(t.waktu).slice(-8) +
+      dateBadge +
+      "</td>" +
+      "<td>" +
+      t.nama +
+      "</td>" +
+      '<td class="barang-list-cell">' +
+      barangList +
+      "</td>" +
+      "<td>" +
+      formatRupiah(t.total) +
+      infoBayar +
+      "</td>" +
+      '<td><span class="' +
+      statusClass +
+      '" ' +
+      statusClickable +
+      ">" +
+      t.status +
+      (t.status === "Belum Lunas" ? " 🔄" : "") +
+      "</span></td>" +
+      "<td>" +
+      t.catatan +
+      "</td>" +
+      "<td>" +
+      '<button class="btn-print" onclick="printInvoice(' +
+      t.id +
+      ')">' +
+      '<i class="fas fa-print"></i>' +
+      "</button>" +
+      "</td>" +
+      "</tr>"
+    );
+  }
+
+  return "";
+    }        
 
 window.lunaskanTransaksi = async function (transactionId) {
   if (!isOnline()) {
